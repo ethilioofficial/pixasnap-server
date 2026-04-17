@@ -1,59 +1,41 @@
-from flask import Flask, request, jsonify, send_file
-import io
+from flask import Flask, request, send_file, jsonify
 from rembg import remove, new_session
+import io
+import os
 
 app = Flask(__name__)
 
-# 🔐 Dummy license store (replace with Firebase later)
-VALID_KEYS = ["ABC123", "XYZ789"]
+# ✅ lightweight model (memory safe)
+session = new_session("u2netp")
 
-# 🤖 AI session
-session = new_session("u2net_human_seg")
+@app.route("/")
+def home():
+    return "BG Remove Server Running"
 
-# -------------------------------
-# 🔐 License Check
-# -------------------------------
-@app.route("/check-license", methods=["POST"])
-def check_license():
-    data = request.json
-    key = data.get("key")
-
-    if key in VALID_KEYS:
-        return jsonify({"status": "valid"})
-    else:
-        return jsonify({"status": "invalid"}), 401
-
-
-# -------------------------------
-# 🎨 Background Removal
-# -------------------------------
 @app.route("/remove-bg", methods=["POST"])
 def remove_bg():
-    file = request.files.get("image")
-    key  = request.form.get("key")
+    if "image" not in request.files:
+        return jsonify({"error": "No image uploaded"}), 400
 
-    # 🔐 License verify
-    if key not in VALID_KEYS:
-        return jsonify({"error": "Invalid license"}), 403
+    file = request.files["image"]
 
-    if not file:
-        return jsonify({"error": "No image provided"}), 400
+    try:
+        input_bytes = file.read()
 
-    input_bytes = file.read()
+        # ✅ NO resize (size exactly same থাকবে)
+        output_bytes = remove(input_bytes, session=session)
 
-    # 🤖 AI process
-    output = remove(input_bytes, session=session)
+        return send_file(
+            io.BytesIO(output_bytes),
+            mimetype="image/png",
+            as_attachment=False
+        )
 
-    return send_file(
-        io.BytesIO(output),
-        mimetype="image/png",
-        as_attachment=False,
-        download_name="output.png"
-    )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
-# -------------------------------
-# 🚀 Run server
-# -------------------------------
+# ✅ Render port binding
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
