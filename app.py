@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 
 # ✅ lightweight model (memory safe)
-session = new_session("u2netp")
+session = new_session("silueta")
 
 @app.route("/")
 def home():
